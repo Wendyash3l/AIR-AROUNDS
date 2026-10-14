@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Air Around U — Banjarbaru (Satelit)</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+:root{--bg:#f3f7f8;--card:#fff;--tx:#15262b;--mu:#5d7279;--bd:#d9e4e7;--ac:#0e7c86}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1a1d;--card:#16262a;--tx:#e6f1f3;--mu:#92abb1;--bd:#2a4349;--ac:#4cc5d0}}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{display:flex;flex-direction:column;height:100dvh;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-top:env(safe-area-inset-top,0px)}
+header{padding:8px 12px 4px}h1{margin:0;font-size:20px}h1 span{color:var(--ac)}.sub{font-size:12px;color:var(--mu)}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding:6px 12px 8px;-webkit-overflow-scrolling:touch}
+.tabs button{flex:none;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:20px;padding:8px 13px;font-size:13px;cursor:pointer}
+.tabs button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+#wrap{position:relative;flex:1;min-height:0}#map{position:absolute;inset:0;background:#222}
+.pin{width:36px;height:36px;border-radius:50%;border:3px solid #fff;color:#fff;font:700 12px system-ui;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px #0008;text-shadow:0 1px 2px #0006}
+.pin.on{outline:3px solid #4cc5d0;transform:scale(1.18)}
+.leaflet-tooltip.lb{background:rgba(0,0,0,.6);color:#fff;border:0;box-shadow:none;font-size:11px;font-weight:600;padding:2px 6px}
+.leaflet-tooltip-bottom.lb:before{display:none}
+#panel{position:absolute;z-index:1000;right:12px;top:12px;width:330px;max-height:calc(100% - 24px);overflow:auto;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px;display:none;box-shadow:0 6px 24px #0005}
+#panel.show{display:block}
+#x{position:absolute;right:8px;top:6px;border:0;background:none;color:var(--mu);font-size:24px;cursor:pointer;padding:4px 10px}
+h2{font-size:18px;margin:0 28px 2px 0}.area{color:var(--mu);font-size:13px;margin-bottom:10px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.m{border:1px solid var(--bd);border-radius:10px;padding:8px 10px;border-left-width:5px}
+.m small{color:var(--mu);font-size:12px;display:block}.m b{font-size:21px}.m em{font-style:normal;font-size:12px;display:block}
+.tip{margin-top:10px;font-size:13px;background:var(--bg);border-radius:10px;padding:10px}
+#bar{padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--bd);background:var(--card);font-size:12px}
+.time{display:flex;align-items:center;gap:10px;font-size:13px}.time input{flex:1;accent-color:var(--ac)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;color:var(--mu);margin-top:6px}.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+#sum{color:var(--mu);margin-top:4px}
+@media(max-width:700px){#panel{left:8px;right:8px;top:auto;bottom:8px;width:auto;max-height:58%}#sum{display:none}}
+.cov{font-size:13px;margin:-2px 0 10px}.tb{width:100%;border-collapse:collapse;font-size:12px}.tb th{color:var(--mu);font-weight:600;text-align:left;padding:4px 3px}.tb td{padding:6px 3px;border-top:1px solid var(--bd)}.tb tr[data-i]{cursor:pointer}.tb tr[data-i]:hover{background:var(--bg)}.chip{display:inline-block;min-width:26px;text-align:center;color:#fff;border-radius:6px;padding:1px 3px;font-weight:700}.back{border:1px solid var(--bd);background:var(--bg);color:var(--tx);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;margin-bottom:8px}.prof{font-size:12px;color:var(--mu);margin:-4px 0 10px}.pin.sm{width:26px;height:26px;font-size:10px;border-width:2px}.lowz .pl-tip{display:none}.poly{cursor:pointer}.poly:hover{fill-opacity:.4}.gl{font-size:9px;fill:var(--mu)}.vtx{width:14px;height:14px;border-radius:3px;background:#ffeb3b;border:2px solid #000;box-sizing:border-box}</style>
+</head>
+<body>
+<header><h1>Air <span>Around</span> U 🛰️</h1><div class="sub">5 kecamatan + 10 tempat pantau · Kota Banjarbaru · data simulasi</div></header>
+<div class="tabs" id="tabs"></div>
+<div id="wrap"><div id="map"></div><aside id="panel"><button id="x" aria-label="Tutup">×</button><div id="pb"></div></aside></div>
+<div id="bar"><div class="time"><span>🕒 Jam</span><input type="range" id="hr" min="0" max="23" step="1"><b id="hrv"></b></div><div class="legend" id="legend"></div><div id="sum"></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+var S=[
+{n:"Banjarbaru Utara",luas:26.855,pop:58000,ap:1,t:"Pusat pemerintahan kota (Mentaos) & permukiman",cov:["Mentaos","Komet","Loktabat Utara","Sungai Ulin"],la:-3.4050,lo:114.8350,dt:1.5,dh:-5,aqi:76,uv:1.0,r:36},
+{n:"Banjarbaru Selatan",luas:15.017,pop:45800,ap:1,t:"Permukiman padat & jalan utama kota",cov:["Loktabat Selatan","Kemuning","Sungai Besar","Guntung Paikat"],la:-3.4500,lo:114.8420,dt:1.2,dh:-3,aqi:70,uv:1.0,r:36},
+{n:"Landasan Ulin",luas:74.054,pop:81088,t:"Bandara Syamsudin Noor, permukiman & lahan terbuka",cov:["Syamsudin Noor (Bandara)","Guntung Payung","Guntung Manggis","Landasan Ulin Timur"],la:-3.4700,lo:114.7800,dt:1.3,dh:-4,aqi:84,uv:1.05,r:35},
+{n:"Liang Anggang",luas:74.773,pop:46520,t:"Simpang tiga Liang Anggang, jalur Banjarmasin–Kaltim & jalan lingkar selatan",cov:["Landasan Ulin Barat","Landasan Ulin Tengah","Landasan Ulin Utara","Landasan Ulin Selatan"],la:-3.4350,lo:114.7150,dt:0.6,dh:1,aqi:72,uv:1.0,r:38},
+{n:"Cempaka",luas:114.543,pop:37163,t:"Perkampungan & kawasan pendulangan intan (lahan terbuka)",cov:["Cempaka","Sungai Tiung","Palam","Bangkal"],la:-3.5000,lo:114.8500,dt:1.8,dh:-6,aqi:90,uv:1.1,r:30},
+{p:1,n:"Bandara Syamsudin Noor",kel:"Syamsudin Noor",kec:"Landasan Ulin",ex:1,t:"Bandar udara utama Kalimantan Selatan",la:-3.4422,lo:114.7622,dt:1.4,dh:-4,aqi:80,uv:1.05,r:35},
+{p:1,n:"Landasan Ulin Timur",kel:"Landasan Ulin Timur",kec:"Landasan Ulin",t:"Permukiman & sekolah, berbatasan dengan Banjarbaru Utara/Selatan",la:-3.4560,lo:114.7950,dt:1.2,dh:-3,aqi:74,uv:1.0,r:36},
+{p:1,n:"Landasan Ulin Barat",kel:"Landasan Ulin Barat",kec:"Liang Anggang",t:"Ibu kota Kecamatan Liang Anggang",la:-3.4600,lo:114.7350,dt:0.7,dh:0,aqi:70,uv:1.0,r:38},
+{p:1,n:"Landasan Ulin Selatan",kel:"Landasan Ulin Selatan",kec:"Liang Anggang",t:"Kawasan selatan, berbatasan dengan Kab. Tanah Laut",la:-3.4980,lo:114.7200,dt:0.3,dh:2,aqi:62,uv:0.98,r:40},
+{p:1,n:"Mentaos",kel:"Mentaos",kec:"Banjarbaru Utara",ex:1,t:"Kelurahan ibu kota Kota Banjarbaru (perkantoran & permukiman)",la:-3.4237,lo:114.8431,dt:1.8,dh:-6,aqi:82,uv:1.0,r:34},
+{p:1,n:"Loktabat Utara",kel:"Loktabat Utara",kec:"Banjarbaru Utara",t:"Permukiman & ruang terbuka",la:-3.4300,lo:114.8260,dt:1.0,dh:-2,aqi:66,uv:1.0,r:36},
+{p:1,n:"Loktabat Selatan",kel:"Loktabat Selatan",kec:"Banjarbaru Selatan",t:"Lokasi Kantor Kecamatan Banjarbaru Selatan (Jl. R.O. Ulin)",la:-3.4590,lo:114.8580,dt:1.1,dh:-3,aqi:70,uv:1.0,r:36},
+{p:1,n:"Guntung Paikat",kel:"Guntung Paikat",kec:"Banjarbaru Selatan",t:"Permukiman padat (Jl. Taman Gembira Selatan)",la:-3.4600,lo:114.8280,dt:1.0,dh:-3,aqi:72,uv:1.0,r:36},
+{p:1,n:"Kebun Raya Banua",kel:"Palam",kec:"Cempaka",ex:1,t:"Kebun raya 100 ha di kawasan perkantoran Pemprov Kalsel",la:-3.4835,lo:114.8198,dt:-1.0,dh:6,aqi:40,uv:0.8,r:42},
+{p:1,n:"Cempaka (Sungai Abit)",kel:"Cempaka",kec:"Cempaka",t:"Perkampungan & wisata Kastel D'Legenda (Dusun Sungai Abit)",la:-3.5000,lo:114.8800,dt:1.5,dh:-5,aqi:88,uv:1.1,r:30}
+];
+var PG={"Banjarbaru Utara":[[-3.392,114.812],[-3.392,114.862],[-3.440,114.866],[-3.440,114.818]],
+"Banjarbaru Selatan":[[-3.440,114.818],[-3.440,114.866],[-3.468,114.866],[-3.468,114.822]],
+"Landasan Ulin":[[-3.392,114.745],[-3.392,114.812],[-3.440,114.818],[-3.468,114.822],[-3.490,114.795],[-3.490,114.745]],
+"Liang Anggang":[[-3.395,114.690],[-3.392,114.745],[-3.490,114.745],[-3.520,114.745],[-3.520,114.690]],
+"Cempaka":[[-3.468,114.822],[-3.468,114.866],[-3.480,114.907],[-3.520,114.907],[-3.520,114.745],[-3.490,114.745],[-3.490,114.795]]};
+var M=[
+{k:"aqi",l:"Kualitas Udara",i:"🌫️"},{k:"rain",l:"Peluang Hujan",i:"🌧️"},{k:"rh",l:"Kelembapan",i:"💧"},
+{k:"temp",l:"Suhu",i:"🌡️"},{k:"uv",l:"Indeks UV",i:"☀️"},{k:"hi",l:"Indeks Panas",i:"🔥"}];
+function bands(a,v){for(var i=0;i<a.length;i++)if(v<=a[i][0])return a[i];return a[a.length-1]}
+var B={
+aqi:[[50,"Baik","#2e9e4f","Aman untuk aktivitas luar ruang."],[100,"Sedang","#d9a400","Kelompok sensitif kurangi aktivitas berat di luar."],[150,"Tidak sehat (sensitif)","#e8741c","Anak, lansia & penderita asma sebaiknya memakai masker."],[200,"Tidak sehat","#d2362f","Kurangi aktivitas luar, gunakan masker."],[999,"Sangat tidak sehat","#7a2a8c","Hindari aktivitas luar ruang."]],
+rain:[[20,"Rendah","#d9a400","Cenderung cerah/berawan."],[50,"Sedang","#5aa7d6","Bawa payung untuk berjaga-jaga."],[75,"Tinggi","#2b73c4","Potensi hujan cukup besar, waspada genangan."],[100,"Sangat tinggi","#1c4a9a","Potensi hujan lebat & petir."]],
+rh:[[40,"Kering","#e8741c","Perbanyak minum, kulit mudah kering."],[70,"Nyaman","#2e9e4f","Kelembapan ideal."],[85,"Lembap","#5aa7d6","Terasa gerah, sirkulasi udara perlu dijaga."],[100,"Sangat lembap","#2b73c4","Terasa pengap, risiko jamur meningkat."]],
+temp:[[24,"Sejuk","#5aa7d6",""],[30,"Hangat","#2e9e4f",""],[34,"Panas","#e8741c",""],[99,"Sangat panas","#d2362f",""]],
+uv:[[2,"Rendah","#2e9e4f","Tidak perlu perlindungan khusus."],[5,"Sedang","#d9a400","Gunakan topi/kacamata saat di luar."],[7,"Tinggi","#e8741c","Pakai tabir surya SPF 30+ dan cari tempat teduh."],[10,"Sangat tinggi","#d2362f","Batasi paparan, tabir surya wajib."],[99,"Ekstrem","#7a2a8c","Hindari matahari langsung."]],
+hi:[[27,"Nyaman","#2e9e4f","Tidak ada risiko panas."],[32,"Waspada","#d9a400","Kelelahan mungkin terjadi bila beraktivitas lama."],[41,"Hati-hati","#e8741c","Risiko kram & kelelahan panas, banyak minum."],[54,"Bahaya","#d2362f","Risiko heat exhaustion tinggi, istirahat di tempat teduh."],[99,"Sangat bahaya","#7a2a8c","Risiko heatstroke, hindari aktivitas luar."]]
+};
+var U={aqi:"",rain:"%",rh:"%",temp:"°C",uv:"",hi:"°C"};
+function g(h,m,s){return Math.exp(-Math.pow(h-m,2)/(2*s*s))}
+function cl(x,a,b){return Math.max(a,Math.min(b,x))}
+function calc(s,h){
+var temp=25+7*Math.max(0,Math.sin(Math.PI*(h-8)/14))+s.dt;
+var rh=cl(97-(temp-25-s.dt)*3.4+s.dh,38,99);
+var rain=cl(s.r+38*g(h,16,3)-12,5,95);
+var uv=11.5*Math.pow(Math.max(0,Math.sin(Math.PI*(h-6)/12)),1.6)*s.uv*(1-0.45*rain/100);
+var aqi=s.aqi+18*g(h,7.5,1.8)+14*g(h,18.5,1.8);
+var T=temp*9/5+32,H;
+if(T<80)H=0.5*(T+61+(T-68)*1.2+rh*0.094);
+else{H=-42.379+2.04901523*T+10.14333127*rh-.22475541*T*rh-.00683783*T*T-.05481717*rh*rh+.00122874*T*T*rh+.00085282*T*rh*rh-.00000199*T*T*rh*rh}
+var hi=Math.max(temp,(H-32)*5/9);
+return{aqi:Math.round(aqi),rain:Math.round(rain),rh:Math.round(rh),temp:+temp.toFixed(1),uv:+uv.toFixed(1),hi:+hi.toFixed(1),pm:+(aqi*0.42).toFixed(1)};
+}
+var cur="aqi",sel=null,hour=new Date().getHours();
+var LA=[-3.525,-3.385],LO=[114.68,114.92];
+function px(la,lo){return[(lo-LO[0])*3166.7+20,(LA[1]-la)*3166.7+40]}
+function band(k,v){return bands(B[k],v)}
+function fmt(k,v){return v+U[k]}
+
+var POSKEY="aau-pos-v2",orig=S.map(function(x){return[x.la,x.lo]}),origEx=S.map(function(x){return x.ex}),edit=false;
+try{var sv=JSON.parse(localStorage.getItem(POSKEY)||"null");if(sv&&sv.length===S.length)sv.forEach(function(p,i){S[i].la=p[0];S[i].lo=p[1];if(p[2])S[i].ex=2})}catch(e){}
+var PGKEY="aau-pg-v2",origPG=JSON.stringify(PG);try{var sp=JSON.parse(localStorage.getItem(PGKEY)||"null");if(sp&&sp["Cempaka"])PG=sp}catch(e){}
+function savePG(){try{localStorage.setItem(PGKEY,JSON.stringify(PG))}catch(e){}}
+function savePos(){try{localStorage.setItem(POSKEY,JSON.stringify(S.map(function(x){return[+x.la.toFixed(6),+x.lo.toFixed(6),x.ex===2?1:0]})))}catch(e){}}
+var map=L.map("map",{minZoom:11,maxZoom:18,maxBounds:[[-3.60,114.66],[-3.32,115.00]],maxBoundsViscosity:1});
+var sat=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:18,attribution:"Citra © Esri, Maxar, Earthstar Geographics"}).addTo(map);
+var lab=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",{maxZoom:18}).addTo(map);
+var osm=L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"© OpenStreetMap"});
+L.control.layers({"🛰️ Satelit":sat,"🗺️ Peta jalan":osm},{"Nama tempat":lab},{position:"topleft"}).addTo(map);
+var bnds=L.latLngBounds([].concat.apply([],Object.keys(PG).map(function(n){return PG[n]}))).pad(0.05);
+map.fitBounds(bnds);
+function zc(){document.getElementById("map").classList.toggle("lowz",map.getZoom()<14)}map.on("zoomend",zc);zc();
+var Rs=L.control({position:"topleft"});Rs.onAdd=function(){var d=L.DomUtil.create("div","leaflet-bar");var a=L.DomUtil.create("a","",d);a.href="#";a.innerHTML="⟲";a.title="Reset";a.style.cssText="font-size:18px;text-align:center;line-height:30px";L.DomEvent.on(a,"click",function(e){L.DomEvent.preventDefault(e);map.fitBounds(bnds)});return d};Rs.addTo(map);
+var mk=S.map(function(x,i){
+var c=L.circle([x.la,x.lo],(x.p?{radius:350,weight:2,fillOpacity:.28}:{radius:1,weight:0,fillOpacity:0,opacity:0})).addTo(map);
+var m=L.marker([x.la,x.lo],{icon:L.divIcon({className:"",html:"",iconSize:x.p?[28,28]:[38,38]}),title:x.n,draggable:false}).addTo(map);
+m.bindTooltip(x.n.replace(/ \(.*\)/,""),{permanent:true,direction:"bottom",offset:[0,16],className:"lb"+(x.p?" pl-tip":"")});
+m.on("click",function(){sel=i;render();detail();map.flyTo([x.la,x.lo],Math.max(map.getZoom(),x.p?15:14),{duration:.6})});
+return{m:m,c:c}});
+var polys=S.map(function(x,i){if(x.p)return null;var pl=L.polygon(PG[x.n],{weight:2.5,color:"#fff",fillOpacity:.25,bubblingMouseEvents:false}).addTo(map);
+pl.on("click",function(){sel=i;render();detail();map.flyToBounds(pl.getBounds(),{duration:.6,maxZoom:14})});return pl});
+function polyOf(n){for(var i=0;i<S.length;i++)if(S[i].n===n)return polys[i]}
+function render(){
+var D=S.map(function(x){return calc(x,hour)});
+S.forEach(function(x,i){var v=D[i][cur],b=band(cur,v);
+mk[i].c.setStyle({color:b[2],fillColor:b[2]});if(polys[i])polys[i].setStyle({fillColor:b[2],fillOpacity:sel===i?.4:.25,weight:sel===i?4:2.5,color:sel===i?"#4cc5d0":"#fff"});
+mk[i].m.setIcon(L.divIcon({className:"",html:'<div class="pin'+(x.p?' sm':'')+(sel===i?' on':'')+'" style="background:'+b[2]+'">'+Math.round(v)+'</div>',iconSize:x.p?[28,28]:[38,38]}))});
+document.getElementById("hrv").textContent=("0"+hour).slice(-2)+":00";
+document.getElementById("legend").innerHTML=B[cur].map(function(b){return'<span><i style="background:'+b[2]+'"></i>'+b[1]+'</span>'}).join("");
+var DK=D.filter(function(d,i){return !S[i].p});var av=function(k){return DK.reduce(function(a,d){return a+d[k]},0)/DK.length};
+document.getElementById("sum").innerHTML="Rata-rata Banjarbaru: AQI "+Math.round(av("aqi"))+" · "+av("temp").toFixed(1)+"°C · RH "+Math.round(av("rh"))+"%";
+}
+function prof(x){if(!x.luas)return"";return'<div class="prof">📐 '+x.luas.toFixed(1).replace(".",",")+' km² · 👥 '+(x.ap?"≈":"")+x.pop.toLocaleString("id-ID")+' jiwa · '+(x.ap?"≈":"")+Math.round(x.pop/x.luas).toLocaleString("id-ID")+'/km²</div>'}
+function ovHTML(){var D=S.map(function(x){return calc(x,hour)}),ks=["aqi","temp","rh","uv","hi","rain"];
+var h='<h2>Semua titik</h2><div class="area">'+("0"+hour).slice(-2)+':00 · ketuk baris untuk detail</div><table class="tb"><tr><th>Titik</th><th>AQI</th><th>°C</th><th>RH%</th><th>UV</th><th>HI</th><th>Hujan%</th></tr>';
+S.forEach(function(x,i){
+if(i===0)h+='<tr><th colspan="7">5 Kecamatan</th></tr>';
+if(x.p&&!S[i-1].p)h+='<tr><th colspan="7">10 Tempat pantau</th></tr>';
+h+='<tr data-i="'+i+'"><td>'+(x.p?'📍 ':'')+x.n+'</td>'+ks.map(function(k){return'<td><span class="chip" style="background:'+band(k,D[i][k])[2]+'">'+D[i][k]+'</span></td>'}).join("")+'</tr>'});
+return h+'</table><div class="tip">AQI = kualitas udara · HI = indeks panas (°C). Titik besar = kecamatan, titik kecil 📍 = tempat pantau.</div>'}
+function bindOv(root,fn){root.querySelectorAll("tr[data-i]").forEach(function(r){r.onclick=function(){fn(+r.getAttribute("data-i"))}})}
+function overview(){var p=document.getElementById("panel");document.getElementById("pb").innerHTML=ovHTML();bindOv(p,function(i){sel=i;render();detail();map.flyTo([S[i].la,S[i].lo],Math.max(map.getZoom(),13),{duration:.6})});p.classList.add("show")}
+function detail(){
+var p=document.getElementById("panel");
+if(sel===null){if(innerWidth>700)overview();else p.classList.remove("show");return}
+var x=S[sel],d=calc(x,hour),h='<button class="back" id="bk">← Semua titik</button><h2>'+(x.p?'📍 ':'Kec. ')+x.n+'</h2><div class="area">'+x.t+' · '+("0"+hour).slice(-2)+':00</div><div class="cov">'+(x.p?'<b>Lokasi:</b> Kel. '+x.kel+', Kec. '+x.kec+'<br>'+(x.ex===2?'📌 posisi diatur manual':x.ex?'📌 koordinat dari sumber':'📌 posisi perkiraan'):'<b>Mencakup kelurahan:</b> '+x.cov.join(", "))+'</div><div class="prof">🧭 '+x.la.toFixed(5)+', '+x.lo.toFixed(5)+'</div>'+prof(x)+'<div class="grid">';
+M.forEach(function(m){var b=band(m.k,d[m.k]);h+='<div class="m" style="border-left-color:'+b[2]+'"><small>'+m.i+' '+m.l+'</small><b>'+fmt(m.k,d[m.k])+'</b><em style="color:'+b[2]+'">'+b[1]+'</em></div>'});
+h+='</div><div class="tip"><b>PM2.5 perkiraan:</b> '+d.pm+' µg/m³<br><b>Udara:</b> '+band("aqi",d.aqi)[3]+'<br><b>UV:</b> '+band("uv",d.uv)[3]+'<br><b>Panas:</b> '+band("hi",d.hi)[3]+'<br><b>Hujan:</b> '+band("rain",d.rain)[3]+'</div>';
+document.getElementById("pb").innerHTML=h;p.classList.add("show");document.getElementById("bk").onclick=function(){sel=null;render();detail();map.fitBounds(bnds)}}
+document.getElementById("x").onclick=function(){sel=null;detail();render()};
+L.DomEvent.disableClickPropagation(document.getElementById("panel"));L.DomEvent.disableScrollPropagation(document.getElementById("panel"));
+map.on("click",function(){if(sel!==null){sel=null;detail();render()}});
+var tb=document.getElementById("tabs");
+M.forEach(function(m){var b=document.createElement("button");b.textContent=m.i+" "+m.l;if(m.k===cur)b.className="on";b.onclick=function(){cur=m.k;[].forEach.call(tb.children,function(c){c.classList.remove("on")});b.classList.add("on");render()};tb.appendChild(b)});
+var ab=document.createElement("button");ab.textContent="📊 Semua titik";ab.onclick=function(){sel=null;render();overview();map.fitBounds(bnds)};
+function showTxt(h){document.getElementById("pb").innerHTML=h;document.getElementById("panel").classList.add("show")}
+mk.forEach(function(o,i){o.m.on("dragend",function(){var ll=o.m.getLatLng();S[i].la=ll.lat;S[i].lo=ll.lng;S[i].ex=2;o.c.setLatLng(ll);savePos();if(sel===i)detail()})});
+var eb=document.createElement("button"),cb=document.createElement("button"),rb=document.createElement("button"),ib=document.createElement("button");ib.textContent="📥 Impor batas";
+eb.textContent="✏️ Atur posisi";cb.textContent="📋 Salin koordinat";rb.textContent="↺ Reset posisi";cb.style.display=rb.style.display=ib.style.display="none";
+function setEdit(v){edit=v;mk.forEach(function(o){if(v)o.m.dragging.enable();else o.m.dragging.disable()});if(v)buildVerts();else clearVerts();eb.classList.toggle("on",v);eb.textContent=v?"✅ Selesai":"✏️ Atur posisi";cb.style.display=rb.style.display=ib.style.display=v?"":"none";
+if(v){sel=null;render();showTxt("<h2>Mode atur posisi</h2><div class='area'>Zoom ke lokasi, lalu seret titik ke tempat yang tepat pada citra satelit. Kotak kuning = sudut batas kecamatan, juga bisa digeser (sudut yang dipakai bersama ikut bergeser). Posisi tersimpan otomatis di browser ini. Ketuk “Salin koordinat” untuk mengambil semua koordinat.</div>")}else detail()}
+eb.onclick=function(){setEdit(!edit)};
+cb.onclick=function(){var t=S.map(function(x){return x.n+": "+x.la.toFixed(6)+", "+x.lo.toFixed(6)}).join("\n")+"\n\nBATAS KECAMATAN [lat, lon]:\n"+Object.keys(PG).map(function(n){return n+": "+JSON.stringify(PG[n].map(function(p){return[+p[0].toFixed(5),+p[1].toFixed(5)]}))}).join("\n");
+var done=function(){showTxt("<h2>Koordinat disalin ✅</h2><div class='area'>Jika belum tersalin, blok dan salin teks di bawah.</div><textarea readonly style='width:100%;height:220px;font-size:12px'>"+t+"</textarea>")};
+if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,done)}else done()};
+rb.onclick=function(){if(confirm("Kembalikan semua titik ke posisi awal?")){S.forEach(function(x,i){x.la=orig[i][0];x.lo=orig[i][1];x.ex=origEx[i];mk[i].m.setLatLng([x.la,x.lo]);mk[i].c.setLatLng([x.la,x.lo])});try{localStorage.removeItem(POSKEY);localStorage.removeItem(PGKEY)}catch(e){}PG=JSON.parse(origPG);S.forEach(function(x,i){if(polys[i])polys[i].setLatLngs(PG[x.n])});if(edit)buildVerts();render()}};
+var vm=[];
+function clearVerts(){vm.forEach(function(m){map.removeLayer(m)});vm=[]}
+function buildVerts(){clearVerts();var seen={};
+Object.keys(PG).forEach(function(n){PG[n].forEach(function(p,j){var k=p[0].toFixed(5)+","+p[1].toFixed(5);(seen[k]=seen[k]||{p:p,refs:[]}).refs.push([n,j])})});
+Object.keys(seen).forEach(function(k){var v=seen[k],m=L.marker(v.p,{draggable:true,icon:L.divIcon({className:"",html:"<div class='vtx'></div>",iconSize:[14,14]})}).addTo(map);
+m.on("drag",function(){var ll=m.getLatLng();v.refs.forEach(function(r){PG[r[0]][r[1]]=[ll.lat,ll.lng];polyOf(r[0]).setLatLngs(PG[r[0]])})});
+m.on("dragend",savePG);vm.push(m)})}
+var fi=document.createElement("input");fi.type="file";fi.accept=".json,.geojson,application/json";fi.style.display="none";document.body.appendChild(fi);
+ib.onclick=function(){fi.click()};
+fi.onchange=function(){var f=fi.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){var n=0;try{var gj=JSON.parse(rd.result),fs=gj.features||[gj];
+fs.forEach(function(ft){var pr=ft.properties||{};S.forEach(function(x,i){if(x.p)return;var hit=Object.keys(pr).some(function(k){return String(pr[k]).toLowerCase().replace(/^kec(amatan)?\.?\s*/,"").trim()===x.n.toLowerCase()});
+if(!hit)return;L.geoJSON(ft).eachLayer(function(l){var a=l.getLatLngs();while(Array.isArray(a)&&Array.isArray(a[0]))a=a[0];PG[x.n]=a.map(function(p){return[p.lat,p.lng]});polys[i].setLatLngs(PG[x.n]);n++})})})}catch(e){}
+savePG();if(edit)buildVerts();showTxt(n?"<h2>Impor selesai ✅</h2><div class='area'>"+n+" batas kecamatan diperbarui.</div>":"<h2>Tidak ada yang cocok</h2><div class='area'>Pastikan GeoJSON punya properti berisi nama kecamatan (mis. “Cempaka”, “Banjarbaru Utara”).</div>");fi.value=""};rd.readAsText(f)};
+[rb,ib,cb,eb,ab].forEach(function(b){tb.insertBefore(b,tb.firstChild)});
+var hr=document.getElementById("hr");hr.value=hour;hr.oninput=function(){hour=+hr.value;render();detail()};
+render();detail();
+</script>
+</body>
+</html>
